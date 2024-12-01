@@ -1,0 +1,8 @@
+//deploy on render
+
+//Build
+pip3 install requirnments.txt
+
+//Run
+export db_pass=cb1234
+uvicorn main:app --reload
