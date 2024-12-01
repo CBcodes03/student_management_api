@@ -4,12 +4,12 @@ from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId  # Import ObjectId to handle MongoDB _id
 import os
+
 app = FastAPI()
 
 # MongoDB Configuration
-u=os.getenv("username_db")
-p=os.getenv("password_db")
-MONGO_URI = "mongodb+srv://{u}:{p}@cluster0.ki7ti.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+
+MONGO_URI = os.getenv("s")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client["student_Management"]
 students_collection = db["students"]
