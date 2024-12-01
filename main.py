@@ -2,17 +2,18 @@ from fastapi import FastAPI, HTTPException, Query, Path
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorClient
+from bson import ObjectId  # Import ObjectId to handle MongoDB _id
 import os
+
 app = FastAPI()
 
 # MongoDB Configuration
-PASSWORD = os.getenv('db_pass')
-MONGO_URI = "mongodb://cb101:{PASSWORD}@cluster0.ki7ti.mongodb.net"
+MONGO_URI = "mongodb+srv://cb101:cb1234@cluster0.ki7ti.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = AsyncIOMotorClient(MONGO_URI)
 db = client["student_Management"]
 students_collection = db["students"]
 
-# Request Models
+# Models
 class Address(BaseModel):
     city: str
     country: str
@@ -23,16 +24,20 @@ class StudentCreate(BaseModel):
     address: Address
 
 class StudentUpdate(BaseModel):
-    name: Optional[str] = None
-    age: Optional[int] = None
-    address: Optional[Address] = None
+    name: Optional[str]
+    age: Optional[int]
+    address: Optional[Address]
 
-# Response Models
 class StudentResponse(BaseModel):
-    id: str = Field(alias="_id")
+    id: str = Field(alias="_id")  # Maps MongoDB _id to id
     name: str
     age: int
     address: Address
+
+# Utility function to convert MongoDB document to response format
+def student_to_response(student: dict) -> dict:
+    student["_id"] = str(student["_id"])  # Convert ObjectId to string
+    return student
 
 @app.post("/students", response_model=StudentResponse, status_code=201)
 async def create_student(student: StudentCreate):
@@ -44,7 +49,7 @@ async def create_student(student: StudentCreate):
 @app.get("/students", response_model=List[StudentResponse])
 async def list_students(
     country: Optional[str] = Query(None),
-    age: Optional[int] = Query(None, ge=0)
+    age: Optional[int] = Query(None, ge=0),
 ):
     query = {}
     if country:
@@ -53,31 +58,33 @@ async def list_students(
         query["age"] = {"$gte": age}
     
     students = await students_collection.find(query).to_list(length=100)
-    for student in students:
-        student["_id"] = str(student["_id"])
-    return students
+    return [student_to_response(student) for student in students]
 
 @app.get("/students/{id}", response_model=StudentResponse)
-async def fetch_student(id: str = Path(...)):
-    student = await students_collection.find_one({"_id": id})
+async def fetch_student(id: str = Path(..., description="The ID of the student previously created.")):
+    if not ObjectId.is_valid(id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+    student = await students_collection.find_one({"_id": ObjectId(id)})
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    student["_id"] = str(student["_id"])
-    return student
+    return student_to_response(student)
 
 @app.patch("/students/{id}", status_code=204)
 async def update_student(id: str, student: StudentUpdate):
+    if not ObjectId.is_valid(id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
     update_data = {k: v for k, v in student.dict().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
-
-    result = await students_collection.update_one({"_id": id}, {"$set": update_data})
+    result = await students_collection.update_one({"_id": ObjectId(id)}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Student not found")
 
 @app.delete("/students/{id}", status_code=200)
-async def delete_student(id: str):
-    result = await students_collection.delete_one({"_id": id})
+async def delete_student(id: str = Path(..., description="The ID of the student previously created.")):
+    if not ObjectId.is_valid(id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+    result = await students_collection.delete_one({"_id": ObjectId(id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Student not found")
     return {"message": "Student deleted successfully"}
