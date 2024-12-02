@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Query, Path
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorClient
-from bson import ObjectId  # Import ObjectId to handle MongoDB _id
+from pymongo.collection import ObjectId  # Import ObjectId to handle MongoDB _id
 import os
 
 app = FastAPI()
