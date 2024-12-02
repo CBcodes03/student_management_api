@@ -40,14 +40,14 @@ def student_to_response(student: dict) -> dict:
     student["_id"] = str(student["_id"])  # Convert ObjectId to string
     return student
 
-@app.post("/students", response_model=StudentResponse, status_code=201)
+@app.post("/students/", response_model=StudentResponse, status_code=201)
 async def create_student(student: StudentCreate):
     student_dict = student.dict()
     result = await students_collection.insert_one(student_dict)
     student_dict["_id"] = str(result.inserted_id)
     return student_dict
 
-@app.get("/students", response_model=List[StudentResponse])
+@app.get("/students/", response_model=List[StudentResponse])
 async def list_students(
     country: Optional[str] = Query(None),
     age: Optional[int] = Query(None, ge=0),
