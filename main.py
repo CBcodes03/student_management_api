@@ -2,19 +2,16 @@ from fastapi import FastAPI, HTTPException, Query, Path
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo.collection import ObjectId  # Import ObjectId to handle MongoDB _id
+from pymongo.collection import ObjectId
 import os
 
 app = FastAPI()
-
-# MongoDB Configuration
 
 MONGO_URI = os.getenv("s")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client["student_Management"]
 students_collection = db["students"]
 
-# Models
 class Address(BaseModel):
     city: str
     country: str
@@ -30,24 +27,23 @@ class StudentUpdate(BaseModel):
     address: Optional[Address]
 
 class StudentResponse(BaseModel):
-    id: str = Field(alias="_id")  # Maps MongoDB _id to id
+    id: str = Field(alias="_id")
     name: str
     age: int
     address: Address
 
-# Utility function to convert MongoDB document to response format
 def student_to_response(student: dict) -> dict:
-    student["_id"] = str(student["_id"])  # Convert ObjectId to string
+    student["_id"] = str(student["_id"])
     return student
 
-@app.post("/students/", response_model=StudentResponse, status_code=201)
+@app.post("/students", response_model=StudentResponse, status_code=201)
 async def create_student(student: StudentCreate):
     student_dict = student.dict()
     result = await students_collection.insert_one(student_dict)
     student_dict["_id"] = str(result.inserted_id)
     return student_dict
 
-@app.get("/students/", response_model=List[StudentResponse])
+@app.get("/students", response_model=List[StudentResponse])
 async def list_students(
     country: Optional[str] = Query(None),
     age: Optional[int] = Query(None, ge=0),
